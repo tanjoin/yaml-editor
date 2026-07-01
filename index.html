@@ -329,7 +329,7 @@
         let currentTargetFormat = 'json'; // デフォルト変換先
         let activeSuggestionIndex = 0;
         let filteredSuggestions = [];
-        let isComposing = false; // IME入力中フラグ
+        let isComposing = false; // 日本語IME入力中フラグ
 
         // --- 初期化 ---
         window.addEventListener('DOMContentLoaded', () => {
@@ -369,24 +369,26 @@
             if (e.target === helpModal) hideHelpModal();
         });
 
-        // IME入力・漢字変換の監視
+        // 日本語入力中（IME変換中）のフラグ制御
         yamlTextarea.addEventListener('compositionstart', () => {
             isComposing = true;
         });
+
         yamlTextarea.addEventListener('compositionend', () => {
             isComposing = false;
-            // 変換が確定したら補完候補を再度トリガー
+            // 変換確定後に遅延して文字数カウントやバリデーションを実行
+            updateLineNumbers();
+            validateAndProcess();
             handleAutocompleteTrigger();
+            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
         });
 
         // 入力時のリアルタイム監視
         yamlTextarea.addEventListener('input', (e) => {
+            if (isComposing) return; // IME入力中はinputイベントによる変更を一時保留する
             updateLineNumbers();
             validateAndProcess();
-            // IME入力中でなければ、入力に応じた予測ポップアップをトリガー
-            if (!isComposing) {
-                handleAutocompleteTrigger();
-            }
+            handleAutocompleteTrigger();
             // 入力があるたびに内容を自動保存
             localStorage.setItem('saved_yaml_data', yamlTextarea.value);
         });
@@ -411,7 +413,7 @@
 
         // キーダウン制御 (Tab、Enter（自動インデント）、Backspace（スマート消去）、矢印キー、オートクローズペアなど)
         yamlTextarea.addEventListener('keydown', (e) => {
-            // 日本語IME入力・漢字変換中は、エディターのキー介入（インデント、改行制御、補完確定等）を完全にスキップする
+            // 日本語入力中（IME変換・候補選択中）は、エディタ独自のキー操作を一切行わずブラウザ標準に任せる
             if (isComposing || e.isComposing) {
                 return;
             }
