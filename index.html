@@ -256,6 +256,13 @@
                 <div>
                     <h4 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 mb-1 text-xs">
                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                        スマート・バックスペース
+                    </h4>
+                    <p class="pl-3 text-slate-500 dark:text-slate-400">インデント位置（行頭のスペース部分）でバックスペースキーを押すと、一気にスペース2つ分（1階層分）をまとめて消去し、上の階層にスピーディーに戻ることができます。</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 mb-1 text-xs">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                         入力キーワード補完 &amp; 自動補完ペア
                     </h4>
                     <p class="pl-3 text-slate-500 dark:text-slate-400">YAMLの主要キーワードを英単語の入力中に予測表示（矢印キーで選択しEnter/Tabで決定）。また、<code class="px-1 bg-slate-100 dark:bg-slate-700 rounded">"</code> <code class="px-1 bg-slate-100 dark:bg-slate-700 rounded">'</code> <code class="px-1 bg-slate-100 dark:bg-slate-700 rounded">{</code> <code class="px-1 bg-slate-100 dark:bg-slate-700 rounded">[</code> を打ち込んだ際には右側の閉じ文字も自動挿入します。</p>
@@ -388,7 +395,7 @@
             }
         });
 
-        // キーダウン制御 (Tab、Enter（自動インデント）、矢印キー、オートクローズペアなど)
+        // キーダウン制御 (Tab、Enter（自動インデント）、Backspace（スマート消去）、矢印キー、オートクローズペアなど)
         yamlTextarea.addEventListener('keydown', (e) => {
             const start = yamlTextarea.selectionStart;
             const end = yamlTextarea.selectionEnd;
@@ -416,6 +423,27 @@
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     hideAutocomplete();
+                    return;
+                }
+            }
+
+            // --- Backspace キー押下時のスマートインデント消去 ---
+            if (e.key === 'Backspace' && start === end) {
+                const beforeCaret = value.substring(0, start);
+                const lineStart = beforeCaret.lastIndexOf('\n') + 1;
+                const lineBeforeCaret = beforeCaret.substring(lineStart);
+
+                // 行頭からカーソル位置までが半角スペースのみ、かつ2つ以上スペースがある場合
+                if (/^ {2,}$/.test(lineBeforeCaret) && lineBeforeCaret.length % 2 === 0) {
+                    e.preventDefault();
+                    
+                    // 1階層分（スペース2つ）を一括で削除する
+                    yamlTextarea.value = value.substring(0, start - 2) + value.substring(end);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+
+                    updateLineNumbers();
+                    validateAndProcess();
+                    localStorage.setItem('saved_yaml_data', yamlTextarea.value);
                     return;
                 }
             }
@@ -667,7 +695,7 @@
             } else {
                 tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
                 tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
-                paneTree.classList.add('hidden');
+                paneTree.add('hidden');
                 paneConverted.classList.remove('hidden');
                 updateConvertedOutput();
             }
@@ -751,6 +779,7 @@
             }
         }
 
+        // エディタのクリア
         function clearEditor() {
             yamlTextarea.value = '';
             updateLineNumbers();
