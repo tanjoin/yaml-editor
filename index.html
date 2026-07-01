@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シンプル YAML エディター</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome (アイコン用) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JS-YAML ライブラリ (YAMLパース & 出力用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f5f7fa',
+                            100: '#e4e8f0',
+                            500: '#4f46e5',
+                            600: '#4338ca',
+                            700: '#3730a3',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* 等幅フォント設定 */
+        .code-font {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col overflow-hidden">
+
+    <!-- ヘッダーバー -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-violet-600 to-indigo-600 text-white p-2 rounded-lg shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-file-code text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-wide">YAML Editor</h1>
+                <p class="text-xs text-slate-400 dark:text-slate-400 font-medium">リアルタイムバリデーション & 相互コンバーター</p>
+            </div>
+        </div>
+
+        <!-- ツールバー：グローバル操作 -->
+        <div class="flex items-center space-x-3">
+            <!-- ダークモード切り替え -->
+            <button id="themeToggleBtn" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="テーマ切り替え">
+                <i id="themeIcon" class="fa-solid fa-moon text-slate-600 dark:text-yellow-400"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ領域 -->
+    <main class="flex-1 flex overflow-hidden p-4 space-x-4">
+        
+        <!-- 左ペイン: エディタと操作 -->
+        <div class="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <!-- エディタヘッダー -->
+            <div class="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-block w-3 h-3 rounded-full bg-indigo-500"></span>
+                    <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">YAML 入力</span>
+                </div>
+                <!-- エディタ機能ボタン群 -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="formatYAML()" class="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-200/60 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition flex items-center gap-1" title="インデントや整形を自動で行います">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> 整形
+                    </button>
+                    <button onclick="clearEditor()" class="px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> クリア
+                    </button>
+                    <button onclick="copyToClipboard('yamlTextarea')" class="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-200/60 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition flex items-center gap-1">
+                        <i class="fa-regular fa-copy"></i> コピー
+                    </button>
+                </div>
+            </div>
+
+            <!-- エディタ本体 -->
+            <div class="flex-1 flex overflow-hidden relative">
+                <!-- 行番号 -->
+                <div id="lineNumbers" class="w-12 bg-slate-50 dark:bg-slate-800/30 text-slate-400 dark:text-slate-500 text-right pr-2 pt-4 select-none code-font border-r border-slate-200 dark:border-slate-700 overflow-hidden text-sm leading-6">
+                    1
+                </div>
+                <!-- テキストエリア -->
+                <textarea id="yamlTextarea" class="flex-1 p-4 bg-transparent outline-none resize-none code-font text-sm leading-6 overflow-y-auto whitespace-pre dark:text-slate-200" spellcheck="false" placeholder="# ここにYAMLを入力してください..."></textarea>
+            </div>
+
+            <!-- バリデーション・ステータスバー -->
+            <div id="validationBar" class="px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs transition-colors duration-200 shrink-0">
+                <div class="flex items-center space-x-2">
+                    <i id="validationIcon" class="fa-solid fa-circle-check"></i>
+                    <span id="validationMessage">YAMLを入力してください...</span>
+                </div>
+                <div class="flex items-center space-x-3 text-slate-500 dark:text-slate-400">
+                    <span id="charCount">文字数: 0</span>
+                    <span id="lineCount">行数: 1</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右ペイン: 変換 & プレビュー -->
+        <div class="w-[45%] flex flex-col space-y-4">
+            
+            <!-- 上部: 変換制御カード -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 shrink-0">
+                <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-right-left text-brand-500"></i> フォーマット変換
+                </h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="convertTo('json')" class="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 flex flex-col items-center justify-center gap-1 transition focus:ring-2 focus:ring-indigo-500">
+                        <i class="fa-solid fa-brackets-curly text-amber-500 text-base"></i>
+                        <span>JSON に変換</span>
+                    </button>
+                    <button onclick="convertTo('xml')" class="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 flex flex-col items-center justify-center gap-1 transition focus:ring-2 focus:ring-indigo-500">
+                        <i class="fa-solid fa-code text-teal-500 text-base"></i>
+                        <span>XML に変換</span>
+                    </button>
+                    <button onclick="convertTo('toml')" class="py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 flex flex-col items-center justify-center gap-1 transition focus:ring-2 focus:ring-indigo-500">
+                        <i class="fa-solid fa-gear text-sky-500 text-base"></i>
+                        <span>TOML に変換</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 下部: リアルタイムビューアー (タブ切替) -->
+            <div class="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
+                <!-- タブヘッダー -->
+                <div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+                    <button onclick="switchTab('tree')" id="tab-tree" class="px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-sitemap"></i> ツリー構造
+                    </button>
+                    <button onclick="switchTab('converted')" id="tab-converted" class="px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-file-export"></i> 変換結果 (<span id="convertedFormatLabel">JSON</span>)
+                    </button>
+                </div>
+
+                <!-- タブコンテンツ領域 -->
+                <div class="flex-1 p-4 overflow-y-auto">
+                    <!-- ツリー表示領域 -->
+                    <div id="pane-tree" class="space-y-1">
+                        <div id="treeViewContainer" class="text-sm code-font"></div>
+                    </div>
+
+                    <!-- 変換結果テキスト領域 -->
+                    <div id="pane-converted" class="hidden h-full flex flex-col">
+                        <div class="flex justify-end gap-2 mb-2">
+                            <button onclick="copyToClipboard('convertedTextarea')" class="px-2 py-1 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded transition flex items-center gap-1">
+                                <i class="fa-regular fa-copy"></i> 結果をコピー
+                            </button>
+                        </div>
+                        <textarea id="convertedTextarea" readonly class="w-full flex-1 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none resize-none code-font text-xs leading-5 text-slate-800 dark:text-slate-200" placeholder="変換されたテキストがここに表示されます..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 通知トースト -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl shadow-lg flex items-center space-x-2 text-sm transition-all duration-300 z-50 pointer-events-none">
+        <i class="fa-solid fa-circle-check text-emerald-500"></i>
+        <span id="toastMessage">コピーしました</span>
+    </div>
+
+    <!-- JavaScript ロジック -->
+    <script>
+        // --- DOM 要素の取得 ---
+        const yamlTextarea = document.getElementById('yamlTextarea');
+        const lineNumbers = document.getElementById('lineNumbers');
+        const validationBar = document.getElementById('validationBar');
+        const validationIcon = document.getElementById('validationIcon');
+        const validationMessage = document.getElementById('validationMessage');
+        const charCountSpan = document.getElementById('charCount');
+        const lineCountSpan = document.getElementById('lineCount');
+        const treeViewContainer = document.getElementById('treeViewContainer');
+        const convertedTextarea = document.getElementById('convertedTextarea');
+        const convertedFormatLabel = document.getElementById('convertedFormatLabel');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeIcon = document.getElementById('themeIcon');
+
+        // アプリの状態
+        let parsedJSONObj = null;
+        let currentTargetFormat = 'json'; // デフォルト変換先
+
+        // --- 初期化 ---
+        window.addEventListener('DOMContentLoaded', () => {
+            // ローカルストレージからダークモード設定を復元、なければOS設定優先
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                themeIcon.className = "fa-solid fa-sun text-yellow-400";
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeIcon.className = "fa-solid fa-moon text-slate-600";
+            }
+
+            // 初期状態は完全に空
+            yamlTextarea.value = '';
+            updateLineNumbers();
+            validateAndProcess();
+        });
+
+        // --- イベントリスナー ---
+
+        // 入力時のリアルタイム監視
+        yamlTextarea.addEventListener('input', () => {
+            updateLineNumbers();
+            validateAndProcess();
+        });
+
+        // 行数カウント・スクロール同期用
+        yamlTextarea.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = yamlTextarea.scrollTop;
+        });
+
+        // テーマ切り替え
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+                themeIcon.className = "fa-solid fa-moon text-slate-600";
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+                themeIcon.className = "fa-solid fa-sun text-yellow-400";
+            }
+        });
+
+        // タブ切り替え
+        function switchTab(tabName) {
+            const tabTree = document.getElementById('tab-tree');
+            const tabConverted = document.getElementById('tab-converted');
+            const paneTree = document.getElementById('pane-tree');
+            const paneConverted = document.getElementById('pane-converted');
+
+            if (tabName === 'tree') {
+                tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
+                tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
+                paneTree.classList.remove('hidden');
+                paneConverted.classList.add('hidden');
+            } else {
+                tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
+                tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
+                paneTree.classList.add('hidden');
+                paneConverted.classList.remove('hidden');
+                // 最新の変換結果を反映
+                updateConvertedOutput();
+            }
+        }
+
+        // --- 主要関数 ---
+
+        // 行番号の更新
+        function updateLineNumbers() {
+            const text = yamlTextarea.value;
+            const lines = text.split('\n');
+            const lineCount = lines.length;
+            
+            let numbersHtml = '';
+            for (let i = 1; i <= lineCount; i++) {
+                numbersHtml += `<div>${i}</div>`;
+            }
+            lineNumbers.innerHTML = numbersHtml;
+
+            // 文字数と行数の表示更新
+            charCountSpan.textContent = `文字数: ${text.length}`;
+            lineCountSpan.textContent = `行数: ${lineCount}`;
+        }
+
+        // リアルタイム解析・バリデーション
+        function validateAndProcess() {
+            const yamlStr = yamlTextarea.value;
+
+            if (!yamlStr.trim()) {
+                setValidationState(true, "YAMLを入力してください...");
+                treeViewContainer.innerHTML = `<span class="text-slate-400 italic">データがありません</span>`;
+                parsedJSONObj = null;
+                updateConvertedOutput();
+                return;
+            }
+
+            try {
+                // js-yaml を用いてパース
+                const doc = jsyaml.load(yamlStr);
+                parsedJSONObj = doc;
+                
+                // バリデーション成功
+                setValidationState(true, "構文は正常です (Valid YAML)");
+
+                // ビューアー表示の更新
+                renderTreeView(doc);
+                updateConvertedOutput();
+
+            } catch (error) {
+                // バリデーションエラー
+                setValidationState(false, error.message);
+                renderErrorTreeView(error.message);
+            }
+        }
+
+        // バリデーション状況のUIフィードバック
+        function setValidationState(isValid, message) {
+            if (isValid) {
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs shrink-0";
+                validationIcon.className = "fa-solid fa-circle-check text-emerald-500 text-sm";
+                validationMessage.textContent = message;
+            } else {
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs shrink-0";
+                validationIcon.className = "fa-solid fa-triangle-exclamation text-rose-500 text-sm";
+                validationMessage.textContent = message;
+            }
+        }
+
+        // YAMLの自動整形
+        function formatYAML() {
+            const yamlStr = yamlTextarea.value;
+            if (!yamlStr.trim()) return;
+
+            try {
+                const doc = jsyaml.load(yamlStr);
+                if (doc && typeof doc === 'object') {
+                    const formatted = jsyaml.dump(doc, {
+                        indent: 2,
+                        lineWidth: -1,
+                        noRefs: true
+                    });
+                    yamlTextarea.value = formatted;
+                    updateLineNumbers();
+                    validateAndProcess();
+                    showToast("YAML を整形しました");
+                }
+            } catch (error) {
+                showToast("エラー: 不正なYAMLは整形できません", true);
+            }
+        }
+
+        // エディタのクリア
+        function clearEditor() {
+            yamlTextarea.value = '';
+            updateLineNumbers();
+            validateAndProcess();
+            showToast("エディタをクリアしました");
+        }
+
+        // クリップボードにコピー
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element || !element.value) return;
+
+            element.select();
+            element.setSelectionRange(0, 99999);
+
+            try {
+                document.execCommand('copy');
+                showToast("クリップボードにコピーしました！");
+            } catch (err) {
+                showToast("コピーに失敗しました", true);
+            }
+            
+            window.getSelection().removeAllRanges();
+        }
+
+        // 変換先の変更 & 変換処理
+        function convertTo(format) {
+            currentTargetFormat = format;
+            convertedFormatLabel.textContent = format.toUpperCase();
+            switchTab('converted');
+            updateConvertedOutput();
+        }
+
+        // 変換出力処理
+        function updateConvertedOutput() {
+            if (!parsedJSONObj) {
+                convertedTextarea.value = "解析可能な有効なデータ構造がありません。";
+                return;
+            }
+
+            try {
+                if (currentTargetFormat === 'json') {
+                    convertedTextarea.value = JSON.stringify(parsedJSONObj, null, 2);
+                } else if (currentTargetFormat === 'xml') {
+                    convertedTextarea.value = objectToXML(parsedJSONObj);
+                } else if (currentTargetFormat === 'toml') {
+                    convertedTextarea.value = objectToTOML(parsedJSONObj);
+                }
+            } catch (err) {
+                convertedTextarea.value = `変換中にエラーが発生しました:\n${err.message}`;
+            }
+        }
+
+        // トースト通知を表示
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            const icon = toast.querySelector('i');
+            if (isError) {
+                toast.classList.add('bg-rose-600', 'text-white');
+                toast.classList.remove('bg-slate-900', 'dark:bg-white', 'text-slate-900');
+                icon.className = "fa-solid fa-circle-xmark text-white mr-1";
+            } else {
+                toast.className = "fixed bottom-6 right-6 transform bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl shadow-lg flex items-center space-x-2 text-sm transition-all duration-300 z-50 pointer-events-none";
+                icon.className = "fa-solid fa-circle-check text-emerald-500 mr-1";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        // --- ビューアー：ツリー構造の描画 ---
+        function renderTreeView(data) {
+            treeViewContainer.innerHTML = '';
+            if (data === null || data === undefined) {
+                treeViewContainer.innerHTML = `<span class="text-slate-400 italic">空のデータ</span>`;
+                return;
+            }
+            
+            const root = createTreeBranch("root", data, true);
+            treeViewContainer.appendChild(root);
+        }
+
+        function renderErrorTreeView(errorMessage) {
+            treeViewContainer.innerHTML = `
+                <div class="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs">
+                    <div class="font-bold mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-exclamation"></i> 解析エラー
+                    </div>
+                    <p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(errorMessage)}</p>
+                </div>
+            `;
+        }
+
+        // ツリー構造の各ブランチ（ノード）を再帰生成
+        function createTreeBranch(key, val, isLast = true, depth = 0) {
+            const container = document.createElement('div');
+            container.className = "pl-4 border-l border-slate-200/50 dark:border-slate-700/50 my-0.5";
+
+            const itemHeader = document.createElement('div');
+            itemHeader.className = "flex items-start py-0.5 hover:bg-slate-100/50 dark:hover:bg-slate-700/20 rounded px-1 group text-xs";
+
+            const type = typeof val;
+            const isObject = val !== null && type === 'object';
+            const isArray = Array.isArray(val);
+
+            const keySpan = document.createElement('span');
+            if (key !== "root") {
+                keySpan.className = "font-semibold text-indigo-600 dark:text-indigo-400 mr-1.5 select-none";
+                keySpan.textContent = `${key}:`;
+            }
+
+            if (isObject) {
+                const toggleIcon = document.createElement('i');
+                toggleIcon.className = "fa-solid fa-chevron-down text-slate-400 mr-1.5 cursor-pointer hover:text-slate-600 self-center transition-transform";
+                itemHeader.appendChild(toggleIcon);
+
+                itemHeader.appendChild(keySpan);
+
+                const metaSpan = document.createElement('span');
+                metaSpan.className = "text-[10px] text-slate-400 dark:text-slate-500 font-mono";
+                metaSpan.textContent = isArray ? `[Array(${val.length})]` : `{Object}`;
+                itemHeader.appendChild(metaSpan);
+
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = "transition-all duration-200";
+
+                itemHeader.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'I' || e.currentTarget === e.target || e.target === keySpan || e.target === metaSpan) {
+                        const isCollapsed = childrenContainer.classList.contains('hidden');
+                        if (isCollapsed) {
+                            childrenContainer.classList.remove('hidden');
+                            toggleIcon.classList.remove('-rotate-90');
+                        } else {
+                            childrenContainer.classList.add('hidden');
+                            toggleIcon.classList.add('-rotate-90');
+                        }
+                    }
+                });
+
+                container.appendChild(itemHeader);
+
+                const keys = Object.keys(val);
+                keys.forEach((k, idx) => {
+                    const childBranch = createTreeBranch(k, val[k], idx === keys.length - 1, depth + 1);
+                    childrenContainer.appendChild(childBranch);
+                });
+                container.appendChild(childrenContainer);
+
+            } else {
+                const bullet = document.createElement('span');
+                bullet.className = "text-slate-400 mr-2 select-none self-center";
+                bullet.innerHTML = "&bull;";
+                itemHeader.appendChild(bullet);
+
+                if (key !== "root") {
+                    itemHeader.appendChild(keySpan);
+                }
+
+                const valSpan = document.createElement('span');
+                if (val === null) {
+                    valSpan.className = "text-slate-400 dark:text-slate-500 italic";
+                    valSpan.textContent = "null";
+                } else if (type === 'string') {
+                    valSpan.className = "text-emerald-600 dark:text-emerald-400 break-all";
+                    valSpan.textContent = `"${val}"`;
+                } else if (type === 'number') {
+                    valSpan.className = "text-amber-600 dark:text-amber-400";
+                    valSpan.textContent = String(val);
+                } else if (type === 'boolean') {
+                    valSpan.className = "text-sky-600 dark:text-sky-400 font-bold";
+                    valSpan.textContent = val ? "true" : "false";
+                } else {
+                    valSpan.className = "text-slate-700 dark:text-slate-300";
+                    valSpan.textContent = String(val);
+                }
+                itemHeader.appendChild(valSpan);
+                container.appendChild(itemHeader);
+            }
+
+            return container;
+        }
+
+        // --- 簡易コンバーター群 ---
+
+        // Object -> XML
+        function objectToXML(obj) {
+            let xml = '<?xml version="1.0" encoding="UTF-8" ?>\n<root>\n';
+            
+            function build(item, indent) {
+                let spacing = '  '.repeat(indent);
+                if (item === null) {
+                    return '';
+                } else if (typeof item === 'object') {
+                    if (Array.isArray(item)) {
+                        let chunk = '';
+                        item.forEach(subItem => {
+                            chunk += `${spacing}<item>\n`;
+                            chunk += build(subItem, indent + 1);
+                            chunk += `${spacing}</item>\n`;
+                        });
+                        return chunk;
+                    } else {
+                        let chunk = '';
+                        for (let k in item) {
+                            let tag = k.replace(/[^a-zA-Z0-9_-]/g, '_');
+                            if (/^\d/.test(tag)) tag = '_' + tag;
+
+                            if (typeof item[k] === 'object' && item[k] !== null) {
+                                chunk += `${spacing}<${tag}>\n`;
+                                chunk += build(item[k], indent + 1);
+                                chunk += `${spacing}</${tag}>\n`;
+                            } else {
+                                const valStr = item[k] === null ? '' : escapeHtml(String(item[k]));
+                                chunk += `${spacing}<${tag}>${valStr}</${tag}>\n`;
+                            }
+                        }
+                        return chunk;
+                    }
+                } else {
+                    return `${spacing}${escapeHtml(String(item))}\n`;
+                }
+            }
+
+            xml += build(obj, 1);
+            xml += '</root>';
+            return xml;
+        }
+
+        // Object -> TOML
+        function objectToTOML(obj) {
+            if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+                return '# TOML は最上位オブジェクトがキー・値のペアである必要があります。\n';
+            }
+
+            let tomlStr = '';
+            
+            function serialize(item, prefix = '') {
+                let simpleKeys = '';
+                let objectKeys = '';
+
+                for (let k in item) {
+                    const val = item[k];
+                    const safeKey = /^[A-Za-z0-9_-]+$/.test(k) ? k : `"${k.replace(/"/g, '\\"')}"`;
+
+                    if (val === null) {
+                        simpleKeys += `# ${safeKey} = null (TOML unsupported null)\n`;
+                    } else if (Array.isArray(val)) {
+                        const isSimpleArray = val.every(x => typeof x !== 'object' || x === null);
+                        if (isSimpleArray) {
+                            const arrItems = val.map(x => {
+                                if (typeof x === 'string') return `"${x.replace(/"/g, '\\"')}"`;
+                                return String(x);
+                            }).join(', ');
+                            simpleKeys += `${safeKey} = [ ${arrItems} ]\n`;
+                        } else {
+                            val.forEach(subObj => {
+                                objectKeys += `\n[[${prefix}${safeKey}]]\n`;
+                                objectKeys += serialize(subObj, `${prefix}${safeKey}.`);
+                            });
+                        }
+                    } else if (typeof val === 'object') {
+                        const currentSection = prefix ? `${prefix}${safeKey}` : safeKey;
+                        objectKeys += `\n[${currentSection}]\n`;
+                        objectKeys += serialize(val, `${currentSection}.`);
+                    } else {
+                        if (typeof val === 'string') {
+                            simpleKeys += `${safeKey} = "${val.replace(/"/g, '\\"')}"\n`;
+                        } else {
+                            simpleKeys += `${safeKey} = ${val}\n`;
+                        }
+                    }
+                }
+                return simpleKeys + objectKeys;
+            }
+
+            tomlStr += serialize(obj);
+            return tomlStr.trim() || '# 空のデータ構造';
+        }
+
+        // 文字列エスケープ
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
