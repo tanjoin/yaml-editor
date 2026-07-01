@@ -329,6 +329,7 @@
         let currentTargetFormat = 'json'; // デフォルト変換先
         let activeSuggestionIndex = 0;
         let filteredSuggestions = [];
+        let isComposing = false; // IME入力中フラグ
 
         // --- 初期化 ---
         window.addEventListener('DOMContentLoaded', () => {
@@ -368,11 +369,24 @@
             if (e.target === helpModal) hideHelpModal();
         });
 
+        // IME入力・漢字変換の監視
+        yamlTextarea.addEventListener('compositionstart', () => {
+            isComposing = true;
+        });
+        yamlTextarea.addEventListener('compositionend', () => {
+            isComposing = false;
+            // 変換が確定したら補完候補を再度トリガー
+            handleAutocompleteTrigger();
+        });
+
         // 入力時のリアルタイム監視
         yamlTextarea.addEventListener('input', (e) => {
             updateLineNumbers();
             validateAndProcess();
-            handleAutocompleteTrigger();
+            // IME入力中でなければ、入力に応じた予測ポップアップをトリガー
+            if (!isComposing) {
+                handleAutocompleteTrigger();
+            }
             // 入力があるたびに内容を自動保存
             localStorage.setItem('saved_yaml_data', yamlTextarea.value);
         });
@@ -397,6 +411,11 @@
 
         // キーダウン制御 (Tab、Enter（自動インデント）、Backspace（スマート消去）、矢印キー、オートクローズペアなど)
         yamlTextarea.addEventListener('keydown', (e) => {
+            // 日本語IME入力・漢字変換中は、エディターのキー介入（インデント、改行制御、補完確定等）を完全にスキップする
+            if (isComposing || e.isComposing) {
+                return;
+            }
+
             const start = yamlTextarea.selectionStart;
             const end = yamlTextarea.selectionEnd;
             const value = yamlTextarea.value;
@@ -695,7 +714,7 @@
             } else {
                 tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
                 tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
-                paneTree.add('hidden');
+                paneTree.classList.add('hidden');
                 paneConverted.classList.remove('hidden');
                 updateConvertedOutput();
             }
@@ -746,11 +765,11 @@
         // バリデーション状況のUIフィードバック
         function setValidationState(isValid, message) {
             if (isValid) {
-                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs shrink-0";
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs transition-colors duration-200 shrink-0";
                 validationIcon.className = "fa-solid fa-circle-check text-emerald-500 text-sm";
                 validationMessage.textContent = message;
             } else {
-                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs shrink-0";
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs transition-colors duration-200 shrink-0";
                 validationIcon.className = "fa-solid fa-triangle-exclamation text-rose-500 text-sm";
                 validationMessage.textContent = message;
             }
