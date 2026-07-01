@@ -376,7 +376,7 @@
 
         yamlTextarea.addEventListener('compositionend', () => {
             isComposing = false;
-            // 変換確定後に遅延して文字数カウントやバリデーションを実行
+            // 変換確定後にバリデーションや自動セーブを実行
             updateLineNumbers();
             validateAndProcess();
             handleAutocompleteTrigger();
@@ -385,7 +385,7 @@
 
         // 入力時のリアルタイム監視
         yamlTextarea.addEventListener('input', (e) => {
-            if (isComposing) return; // IME入力中はinputイベントによる変更を一時保留する
+            if (isComposing) return; // IME入力中はinputイベントによる自動処理を一時保留する
             updateLineNumbers();
             validateAndProcess();
             handleAutocompleteTrigger();
@@ -411,10 +411,10 @@
             }
         });
 
-        // キーダウン制御 (Tab、Enter（自動インデント）、Backspace（スマート消去）、矢印キー、オートクローズペアなど)
+        // キーダウン制御 (Tab、Enter、Backspace、オートクローズペアなど)
         yamlTextarea.addEventListener('keydown', (e) => {
-            // 日本語入力中（IME変換・候補選択中）は、エディタ独自のキー操作を一切行わずブラウザ標準に任せる
-            if (isComposing || e.isComposing) {
+            // 日本語入力中（IME変換・候補選択中、またはIMEオン状態でのキーダウンkeyCode: 229）は、エディタ独自のキー操作を一切行わずブラウザ標準に任せる
+            if (isComposing || e.isComposing || e.keyCode === 229) {
                 return;
             }
 
@@ -458,9 +458,15 @@
                 if (/^ {2,}$/.test(lineBeforeCaret) && lineBeforeCaret.length % 2 === 0) {
                     e.preventDefault();
                     
-                    // 1階層分（スペース2つ）を一括で削除する
-                    yamlTextarea.value = value.substring(0, start - 2) + value.substring(end);
-                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+                    // 1階層分（スペース2つ）を選択してブラウザ標準のdeleteコマンドで消去 (Undo履歴対応)
+                    yamlTextarea.setSelectionRange(start - 2, start);
+                    try {
+                        document.execCommand('delete', false);
+                    } catch (err) {
+                        // 万が一execCommandが動作しないブラウザ環境での安全なフォールバック
+                        yamlTextarea.value = value.substring(0, start - 2) + value.substring(end);
+                        yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+                    }
 
                     updateLineNumbers();
                     validateAndProcess();
@@ -486,9 +492,15 @@
                 }
 
                 const insertion = '\n' + indent;
-                yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
                 
-                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + insertion.length;
+                // insertText コマンドで改行＋インデントを挿入することで、Undo(Ctrl+Z)を有効化
+                try {
+                    document.execCommand('insertText', false, insertion);
+                } catch (err) {
+                    // フォールバック
+                    yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + insertion.length;
+                }
 
                 updateLineNumbers();
                 validateAndProcess();
@@ -514,24 +526,45 @@
                     }
                     
                     const replacement = newLines.join('\n');
-                    yamlTextarea.value = value.substring(0, lineStart) + replacement + value.substring(end);
-                    yamlTextarea.selectionStart = lineStart;
-                    yamlTextarea.selectionEnd = lineStart + replacement.length;
+                    yamlTextarea.setSelectionRange(lineStart, end);
+                    try {
+                        document.execCommand('insertText', false, replacement);
+                        yamlTextarea.setSelectionRange(lineStart, lineStart + replacement.length);
+                    } catch (err) {
+                        yamlTextarea.value = value.substring(0, lineStart) + replacement + value.substring(end);
+                        yamlTextarea.selectionStart = lineStart;
+                        yamlTextarea.selectionEnd = lineStart + replacement.length;
+                    }
                 } else {
                     if (e.shiftKey) {
                         const before = value.substring(0, start);
                         const lineStart = before.lastIndexOf('\n') + 1;
                         const line = value.substring(lineStart, start);
                         if (line.startsWith('  ')) {
-                            yamlTextarea.value = value.substring(0, lineStart) + line.substring(2) + value.substring(start);
-                            yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+                            yamlTextarea.setSelectionRange(start - 2, start);
+                            try {
+                                document.execCommand('delete', false);
+                            } catch (err) {
+                                yamlTextarea.value = value.substring(0, lineStart) + line.substring(2) + value.substring(start);
+                                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+                            }
                         } else if (line.startsWith(' ')) {
-                            yamlTextarea.value = value.substring(0, lineStart) + line.substring(1) + value.substring(start);
-                            yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 1;
+                            yamlTextarea.setSelectionRange(start - 1, start);
+                            try {
+                                document.execCommand('delete', false);
+                            } catch (err) {
+                                yamlTextarea.value = value.substring(0, lineStart) + line.substring(1) + value.substring(start);
+                                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 1;
+                            }
                         }
                     } else {
-                        yamlTextarea.value = value.substring(0, start) + "  " + value.substring(end);
-                        yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 2;
+                        // 通常の Tab で2スペース挿入
+                        try {
+                            document.execCommand('insertText', false, "  ");
+                        } catch (err) {
+                            yamlTextarea.value = value.substring(0, start) + "  " + value.substring(end);
+                            yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 2;
+                        }
                     }
                 }
                 
@@ -546,10 +579,16 @@
             if (pairs[e.key] !== undefined) {
                 e.preventDefault();
                 const closingChar = pairs[e.key];
-                
-                yamlTextarea.value = value.substring(0, start) + e.key + value.substring(start, end) + closingChar + value.substring(end);
-                yamlTextarea.selectionStart = start + 1;
-                yamlTextarea.selectionEnd = end + 1;
+                const insertion = e.key + closingChar;
+
+                try {
+                    // ペアを一気に挿入し、キャレットだけ1文字手前に引き戻す (Undo対応)
+                    document.execCommand('insertText', false, insertion);
+                    yamlTextarea.setSelectionRange(start + 1, start + 1);
+                } catch (err) {
+                    yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 1;
+                }
                 
                 updateLineNumbers();
                 validateAndProcess();
@@ -686,8 +725,14 @@
 
             if (match) {
                 const startPos = caretPos - match[0].length;
-                yamlTextarea.value = text.substring(0, startPos) + selectedText + text.substring(caretPos);
-                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = startPos + selectedText.length;
+                yamlTextarea.setSelectionRange(startPos, caretPos);
+                try {
+                    // execCommand を使って入力補完を反映させることで Undo を阻害しない
+                    document.execCommand('insertText', false, selectedText);
+                } catch (err) {
+                    yamlTextarea.value = text.substring(0, startPos) + selectedText + text.substring(caretPos);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = startPos + selectedText.length;
+                }
             }
 
             hideAutocomplete();
@@ -716,7 +761,7 @@
             } else {
                 tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
                 tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
-                paneTree.classList.add('hidden');
+                paneTree.add('hidden');
                 paneConverted.classList.remove('hidden');
                 updateConvertedOutput();
             }
@@ -767,14 +812,32 @@
         // バリデーション状況のUIフィードバック
         function setValidationState(isValid, message) {
             if (isValid) {
-                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs transition-colors duration-200 shrink-0";
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs shrink-0";
                 validationIcon.className = "fa-solid fa-circle-check text-emerald-500 text-sm";
                 validationMessage.textContent = message;
             } else {
-                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs transition-colors duration-200 shrink-0";
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs shrink-0";
                 validationIcon.className = "fa-solid fa-triangle-exclamation text-rose-500 text-sm";
                 validationMessage.textContent = message;
             }
+        }
+
+        // 全選択をしてから insertText コマンドで丸ごと置き換えるヘルパー
+        // これにより、ブラウザの標準Undoスタックに編集履歴を正常にプールさせ、Ctrl+Zが正常動作する
+        function updateTextareaValueWithUndo(newValue) {
+            yamlTextarea.focus();
+            // テキストエリア全体を選択状態に設定
+            yamlTextarea.setSelectionRange(0, yamlTextarea.value.length);
+            try {
+                const success = document.execCommand('insertText', false, newValue);
+                if (!success) {
+                    yamlTextarea.value = newValue;
+                }
+            } catch (err) {
+                yamlTextarea.value = newValue;
+            }
+            // 選択を解除しカーソルを先頭へ
+            yamlTextarea.setSelectionRange(0, 0);
         }
 
         function formatYAML() {
@@ -789,11 +852,14 @@
                         lineWidth: -1,
                         noRefs: true
                     });
-                    yamlTextarea.value = formatted;
+                    
+                    // 単純代入ではなくUndoが利く形で一括置き換え
+                    updateTextareaValueWithUndo(formatted);
+                    
                     updateLineNumbers();
                     validateAndProcess();
                     localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-                    showToast("YAML を整形しました");
+                    showToast("YAML を整形しました (Undo可能です)");
                 }
             } catch (error) {
                 showToast("エラー: 不正なYAMLは整形できません", true);
@@ -802,11 +868,11 @@
 
         // エディタのクリア
         function clearEditor() {
-            yamlTextarea.value = '';
+            updateTextareaValueWithUndo('');
             updateLineNumbers();
             validateAndProcess();
             localStorage.removeItem('saved_yaml_data');
-            showToast("エディタをクリアしました");
+            showToast("エディタをクリアしました (Undo可能です)");
         }
 
         function copyToClipboard(elementId) {
