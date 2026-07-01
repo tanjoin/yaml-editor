@@ -321,3 +321,788 @@
             updateLineNumbers();
             validateAndProcess();
         });
+
+        // --- イベントリスナー ---
+
+        helpBtn.addEventListener('click', () => {
+            helpModal.classList.remove('hidden');
+        });
+        const hideHelpModal = () => {
+            helpModal.classList.add('hidden');
+        };
+        closeHelpBtn.addEventListener('click', hideHelpModal);
+        okHelpBtn.addEventListener('click', hideHelpModal);
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) hideHelpModal();
+        });
+
+        yamlTextarea.addEventListener('compositionstart', () => {
+            isComposing = true;
+        });
+
+        yamlTextarea.addEventListener('compositionend', () => {
+            isComposing = false;
+            updateLineNumbers();
+            validateAndProcess();
+            handleAutocompleteTrigger();
+            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+        });
+
+        yamlTextarea.addEventListener('input', (e) => {
+            if (isComposing) return;
+            updateLineNumbers();
+            validateAndProcess();
+            handleAutocompleteTrigger();
+            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+        });
+
+        yamlTextarea.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = yamlTextarea.scrollTop;
+        });
+
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+                themeIcon.className = "fa-solid fa-moon text-slate-600";
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+                themeIcon.className = "fa-solid fa-sun text-yellow-400";
+            }
+        });
+
+        yamlTextarea.addEventListener('keydown', (e) => {
+            if (isComposing || e.isComposing || e.keyCode === 229) {
+                return;
+            }
+
+            const start = yamlTextarea.selectionStart;
+            const end = yamlTextarea.selectionEnd;
+            const value = yamlTextarea.value;
+
+            if (!autocompletePopup.classList.contains('hidden')) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeSuggestionIndex = (activeSuggestionIndex + 1) % filteredSuggestions.length;
+                    updateSuggestionSelection();
+                    return;
+                }
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeSuggestionIndex = (activeSuggestionIndex - 1 + filteredSuggestions.length) % filteredSuggestions.length;
+                    updateSuggestionSelection();
+                    return;
+                }
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    insertSelectedSuggestion();
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideAutocomplete();
+                    return;
+                }
+            }
+
+            if (e.key === 'Backspace' && start === end) {
+                const beforeCaret = value.substring(0, start);
+                const lineStart = beforeCaret.lastIndexOf('\n') + 1;
+                const lineBeforeCaret = beforeCaret.substring(lineStart);
+
+                if (/^ {2,}$/.test(lineBeforeCaret) && lineBeforeCaret.length % 2 === 0) {
+                    e.preventDefault();
+                    yamlTextarea.setSelectionRange(start - 2, start);
+                    try {
+                        document.execCommand('delete', false);
+                    } catch (err) {
+                        yamlTextarea.value = value.substring(0, start - 2) + value.substring(end);
+                        yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+                    }
+
+                    updateLineNumbers();
+                    validateAndProcess();
+                    localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+                    return;
+                }
+            }
+
+            if (e.key === 'Enter' && start === end) {
+                e.preventDefault();
+
+                const beforeCaret = value.substring(0, start);
+                const linesBefore = beforeCaret.split('\n');
+                const lastLine = linesBefore[linesBefore.length - 1];
+
+                const indentMatch = lastLine.match(/^(\s*)/);
+                let indent = indentMatch ? indentMatch[1] : '';
+
+                const cleanLine = lastLine.trim();
+                if (cleanLine.endsWith(':') || cleanLine.endsWith('-')) {
+                    indent += '  ';
+                }
+
+                const insertion = '\n' + indent;
+                
+                try {
+                    document.execCommand('insertText', false, insertion);
+                } catch (err) {
+                    yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + insertion.length;
+                }
+
+                updateLineNumbers();
+                validateAndProcess();
+                localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+                return;
+            }
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                
+                if (start !== end) {
+                    const before = value.substring(0, start);
+                    const lineStart = before.lastIndexOf('\n') + 1;
+                    const selectedText = value.substring(lineStart, end);
+                    const lines = selectedText.split('\n');
+                    
+                    let newLines;
+                    if (e.shiftKey) {
+                        newLines = lines.map(line => line.startsWith('  ') ? line.substring(2) : (line.startsWith(' ') ? line.substring(1) : line));
+                    } else {
+                        newLines = lines.map(line => '  ' + line);
+                    }
+                    
+                    const replacement = newLines.join('\n');
+                    yamlTextarea.setSelectionRange(lineStart, end);
+                    try {
+                        document.execCommand('insertText', false, replacement);
+                        yamlTextarea.setSelectionRange(lineStart, lineStart + replacement.length);
+                    } catch (err) {
+                        yamlTextarea.value = value.substring(0, lineStart) + replacement + value.substring(end);
+                        yamlTextarea.selectionStart = lineStart;
+                        yamlTextarea.selectionEnd = lineStart + replacement.length;
+                    }
+                } else {
+                    if (e.shiftKey) {
+                        const before = value.substring(0, start);
+                        const lineStart = before.lastIndexOf('\n') + 1;
+                        const line = value.substring(lineStart, start);
+                        if (line.startsWith('  ')) {
+                            yamlTextarea.setSelectionRange(start - 2, start);
+                            try {
+                                document.execCommand('delete', false);
+                            } catch (err) {
+                                yamlTextarea.value = value.substring(0, lineStart) + line.substring(2) + value.substring(start);
+                                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
+                            }
+                        } else if (line.startsWith(' ')) {
+                            yamlTextarea.setSelectionRange(start - 1, start);
+                            try {
+                                document.execCommand('delete', false);
+                            } catch (err) {
+                                yamlTextarea.value = value.substring(0, lineStart) + line.substring(1) + value.substring(start);
+                                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 1;
+                            }
+                        }
+                    } else {
+                        try {
+                            document.execCommand('insertText', false, "  ");
+                        } catch (err) {
+                            yamlTextarea.value = value.substring(0, start) + "  " + value.substring(end);
+                            yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 2;
+                        }
+                    }
+                }
+                
+                updateLineNumbers();
+                validateAndProcess();
+                localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+                return;
+            }
+
+            const pairs = { '{': '}', '[': ']', '"': '"', "'": "'" };
+            if (pairs[e.key] !== undefined) {
+                e.preventDefault();
+                const closingChar = pairs[e.key];
+                const insertion = e.key + closingChar;
+
+                try {
+                    document.execCommand('insertText', false, insertion);
+                    yamlTextarea.setSelectionRange(start + 1, start + 1);
+                } catch (err) {
+                    yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 1;
+                }
+                
+                updateLineNumbers();
+                validateAndProcess();
+                localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+                return;
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target !== yamlTextarea && !autocompletePopup.contains(e.target)) {
+                hideAutocomplete();
+            }
+        });
+
+        // --- 入力補完システム ---
+
+        function getCaretCoordinates(textarea, position) {
+            const div = document.createElement('div');
+            const style = window.getComputedStyle(textarea);
+            for (const prop of style) {
+                div.style[prop] = style[prop];
+            }
+            div.style.position = 'absolute';
+            div.style.visibility = 'hidden';
+            div.style.whiteSpace = 'pre-wrap';
+            div.style.wordBreak = 'break-all';
+            
+            const text = textarea.value.substring(0, position);
+            div.textContent = text;
+            
+            const span = document.createElement('span');
+            span.textContent = textarea.value.substring(position, position + 1) || '.';
+            div.appendChild(span);
+            
+            document.body.appendChild(div);
+            const { offsetLeft, offsetTop } = span;
+            document.body.removeChild(div);
+            
+            return {
+                left: offsetLeft + textarea.offsetLeft - textarea.scrollLeft,
+                top: offsetTop + textarea.offsetTop - textarea.scrollTop + 18
+            };
+        }
+
+        function handleAutocompleteTrigger() {
+            const text = yamlTextarea.value;
+            const caretPos = yamlTextarea.selectionStart;
+            
+            const beforeCaret = text.substring(0, caretPos);
+            const match = beforeCaret.match(/[\w-]+$/);
+            
+            if (!match) {
+                hideAutocomplete();
+                return;
+            }
+
+            const currentWord = match[0];
+            if (currentWord.length < 2) {
+                hideAutocomplete();
+                return;
+            }
+
+            filteredSuggestions = YAML_KEYWORDS.filter(k => 
+                k.toLowerCase().startsWith(currentWord.toLowerCase()) && 
+                k.toLowerCase() !== currentWord.toLowerCase()
+            );
+
+            if (filteredSuggestions.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+
+            renderSuggestions(currentWord);
+            const coords = getCaretCoordinates(yamlTextarea, caretPos - currentWord.length);
+            
+            const maxLeft = yamlTextarea.clientWidth - 200;
+            const maxTop = yamlTextarea.clientHeight - 150;
+            const left = Math.min(coords.left, maxLeft);
+            const top = Math.min(coords.top, maxTop);
+
+            autocompletePopup.style.left = `${left}px`;
+            autocompletePopup.style.top = `${top}px`;
+            autocompletePopup.classList.remove('hidden');
+        }
+
+        function renderSuggestions(currentWord) {
+            autocompletePopup.innerHTML = '';
+            activeSuggestionIndex = 0;
+
+            filteredSuggestions.forEach((suggestion, index) => {
+                const item = document.createElement('div');
+                item.className = "px-3 py-1.5 cursor-pointer flex items-center justify-between text-slate-700 dark:text-slate-300 transition-colors";
+                item.dataset.index = index;
+
+                const highlighted = `<strong>${suggestion.substring(0, currentWord.length)}</strong>${suggestion.substring(currentWord.length)}`;
+                
+                item.innerHTML = `
+                    <span>${highlighted}</span>
+                    <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono">YAML</span>
+                `;
+
+                item.addEventListener('click', () => {
+                    activeSuggestionIndex = index;
+                    insertSelectedSuggestion();
+                });
+
+                autocompletePopup.appendChild(item);
+            });
+
+            updateSuggestionSelection();
+        }
+
+        function updateSuggestionSelection() {
+            const items = autocompletePopup.querySelectorAll('div');
+            items.forEach((item, index) => {
+                if (index === activeSuggestionIndex) {
+                    item.className = "px-3 py-1.5 cursor-pointer flex items-center justify-between text-white bg-indigo-600 dark:bg-indigo-600 font-medium";
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.className = "px-3 py-1.5 cursor-pointer flex items-center justify-between text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60";
+                }
+            });
+        }
+
+        function insertSelectedSuggestion() {
+            const selectedText = filteredSuggestions[activeSuggestionIndex];
+            if (!selectedText) return;
+
+            const text = yamlTextarea.value;
+            const caretPos = yamlTextarea.selectionStart;
+            const beforeCaret = text.substring(0, caretPos);
+            const match = beforeCaret.match(/[\w-]+$/);
+
+            if (match) {
+                const startPos = caretPos - match[0].length;
+                yamlTextarea.setSelectionRange(startPos, caretPos);
+                try {
+                    document.execCommand('insertText', false, selectedText);
+                } catch (err) {
+                    yamlTextarea.value = text.substring(0, startPos) + selectedText + text.substring(caretPos);
+                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = startPos + selectedText.length;
+                }
+            }
+
+            hideAutocomplete();
+            updateLineNumbers();
+            validateAndProcess();
+            yamlTextarea.focus();
+            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+        }
+
+        function hideAutocomplete() {
+            autocompletePopup.classList.add('hidden');
+            filteredSuggestions = [];
+        }
+
+        function switchTab(tabName) {
+            const tabTree = document.getElementById('tab-tree');
+            const tabConverted = document.getElementById('tab-converted');
+            const paneTree = document.getElementById('pane-tree');
+            const paneConverted = document.getElementById('pane-converted');
+
+            if (tabName === 'tree') {
+                tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
+                tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
+                paneTree.classList.remove('hidden');
+                paneConverted.classList.add('hidden');
+            } else {
+                tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
+                tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
+                paneTree.classList.add('hidden');
+                paneConverted.classList.remove('hidden');
+                updateConvertedOutput();
+            }
+        }
+
+        // --- 主要関数 ---
+
+        function updateLineNumbers() {
+            const text = yamlTextarea.value;
+            const lines = text.split('\n');
+            const lineCount = lines.length;
+            
+            let numbersHtml = '';
+            for (let i = 1; i <= lineCount; i++) {
+                numbersHtml += `<div>${i}</div>`;
+            }
+            lineNumbers.innerHTML = numbersHtml;
+
+            charCountSpan.textContent = `文字数: ${text.length}`;
+            lineCountSpan.textContent = `行数: ${lineCount}`;
+        }
+
+        function validateAndProcess() {
+            const yamlStr = yamlTextarea.value;
+
+            if (!yamlStr.trim()) {
+                setValidationState(true, "YAMLを入力してください...");
+                treeViewContainer.innerHTML = `<span class="text-slate-400 italic">データがありません</span>`;
+                parsedJSONObj = null;
+                updateConvertedOutput();
+                return;
+            }
+
+            try {
+                const doc = jsyaml.load(yamlStr);
+                parsedJSONObj = doc;
+                
+                setValidationState(true, "構文は正常です (Valid YAML)");
+                renderTreeView(doc);
+                updateConvertedOutput();
+
+            } catch (error) {
+                setValidationState(false, error.message);
+                renderErrorTreeView(error.message);
+            }
+        }
+
+        function setValidationState(isValid, message) {
+            if (isValid) {
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs shrink-0";
+                validationIcon.className = "fa-solid fa-circle-check text-emerald-500 text-sm";
+                validationMessage.textContent = message;
+            } else {
+                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs shrink-0";
+                validationIcon.className = "fa-solid fa-triangle-exclamation text-rose-500 text-sm";
+                validationMessage.textContent = message;
+            }
+        }
+
+        function updateTextareaValueWithUndo(newValue) {
+            yamlTextarea.focus();
+            yamlTextarea.setSelectionRange(0, yamlTextarea.value.length);
+            try {
+                const success = document.execCommand('insertText', false, newValue);
+                if (!success) {
+                    yamlTextarea.value = newValue;
+                }
+            } catch (err) {
+                yamlTextarea.value = newValue;
+            }
+            yamlTextarea.setSelectionRange(0, 0);
+        }
+
+        function formatYAML() {
+            const yamlStr = yamlTextarea.value;
+            if (!yamlStr.trim()) return;
+
+            try {
+                const doc = jsyaml.load(yamlStr);
+                if (doc && typeof doc === 'object') {
+                    const formatted = jsyaml.dump(doc, {
+                        indent: 2,
+                        lineWidth: -1,
+                        noRefs: true
+                    });
+                    
+                    updateTextareaValueWithUndo(formatted);
+                    updateLineNumbers();
+                    validateAndProcess();
+                    localStorage.setItem('saved_yaml_data', yamlTextarea.value);
+                    showToast("YAML を整形しました (Undo可能です)");
+                }
+            } catch (error) {
+                showToast("エラー: 不正なYAMLは整形できません", true);
+            }
+        }
+
+        function clearEditor() {
+            updateTextareaValueWithUndo('');
+            updateLineNumbers();
+            validateAndProcess();
+            localStorage.removeItem('saved_yaml_data');
+            showToast("エディタをクリアしました (Undo可能です)");
+        }
+
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element || !element.value) return;
+
+            element.select();
+            element.setSelectionRange(0, 99999);
+
+            try {
+                document.execCommand('copy');
+                showToast("クリップボードにコピーしました！");
+            } catch (err) {
+                showToast("コピーに失敗しました", true);
+            }
+            
+            window.getSelection().removeAllRanges();
+        }
+
+        function convertTo(format) {
+            currentTargetFormat = format;
+            convertedFormatLabel.textContent = format.toUpperCase();
+            switchTab('converted');
+            updateConvertedOutput();
+        }
+
+        function updateConvertedOutput() {
+            if (!parsedJSONObj) {
+                convertedTextarea.value = "解析可能な有効なデータ構造がありません。";
+                return;
+            }
+
+            try {
+                if (currentTargetFormat === 'json') {
+                    convertedTextarea.value = JSON.stringify(parsedJSONObj, null, 2);
+                } else if (currentTargetFormat === 'xml') {
+                    convertedTextarea.value = objectToXML(parsedJSONObj);
+                } else if (currentTargetFormat === 'toml') {
+                    convertedTextarea.value = objectToTOML(parsedJSONObj);
+                }
+            } catch (err) {
+                convertedTextarea.value = `変換中にエラーが発生しました:\n${err.message}`;
+            }
+        }
+
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            const icon = toast.querySelector('i');
+            if (isError) {
+                toast.classList.add('bg-rose-600', 'text-white');
+                toast.classList.remove('bg-slate-900', 'dark:bg-white', 'text-slate-900');
+                icon.className = "fa-solid fa-circle-xmark text-white mr-1";
+            } else {
+                toast.className = "fixed bottom-6 right-6 transform bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl shadow-lg flex items-center space-x-2 text-sm transition-all duration-300 z-50 pointer-events-none";
+                icon.className = "fa-solid fa-circle-check text-emerald-500 mr-1";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function renderTreeView(data) {
+            treeViewContainer.innerHTML = '';
+            if (data === null || data === undefined) {
+                treeViewContainer.innerHTML = `<span class="text-slate-400 italic">空のデータ</span>`;
+                return;
+            }
+            
+            const root = createTreeBranch("root", data, true);
+            treeViewContainer.appendChild(root);
+        }
+
+        function renderErrorTreeView(errorMessage) {
+            treeViewContainer.innerHTML = `
+                <div class="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs">
+                    <div class="font-bold mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-exclamation"></i> 解析エラー
+                    </div>
+                    <p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(errorMessage)}</p>
+                </div>
+            `;
+        }
+
+        function createTreeBranch(key, val, isLast = true, depth = 0) {
+            const container = document.createElement('div');
+            container.className = "pl-4 border-l border-slate-200/50 dark:border-slate-700/50 my-0.5";
+
+            const itemHeader = document.createElement('div');
+            itemHeader.className = "flex items-start py-0.5 hover:bg-slate-100/50 dark:hover:bg-slate-700/20 rounded px-1 group text-xs";
+
+            const type = typeof val;
+            const isObject = val !== null && type === 'object';
+            const isArray = Array.isArray(val);
+
+            const keySpan = document.createElement('span');
+            if (key !== "root") {
+                keySpan.className = "font-semibold text-indigo-600 dark:text-indigo-400 mr-1.5 select-none";
+                keySpan.textContent = `${key}:`;
+            }
+
+            if (isObject) {
+                const toggleIcon = document.createElement('i');
+                toggleIcon.className = "fa-solid fa-chevron-down text-slate-400 mr-1.5 cursor-pointer hover:text-slate-600 self-center transition-transform";
+                itemHeader.appendChild(toggleIcon);
+
+                itemHeader.appendChild(keySpan);
+
+                const metaSpan = document.createElement('span');
+                metaSpan.className = "text-[10px] text-slate-400 dark:text-slate-500 font-mono";
+                metaSpan.textContent = isArray ? `[Array(${val.length})]` : `{Object}`;
+                itemHeader.appendChild(metaSpan);
+
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = "transition-all duration-200";
+
+                itemHeader.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'I' || e.currentTarget === e.target || e.target === keySpan || e.target === metaSpan) {
+                        const isCollapsed = childrenContainer.classList.contains('hidden');
+                        if (isCollapsed) {
+                            childrenContainer.classList.remove('hidden');
+                            toggleIcon.classList.remove('-rotate-90');
+                        } else {
+                            childrenContainer.classList.add('hidden');
+                            toggleIcon.classList.add('-rotate-90');
+                        }
+                    }
+                });
+
+                container.appendChild(itemHeader);
+
+                const keys = Object.keys(val);
+                keys.forEach((k, idx) => {
+                    const childBranch = createTreeBranch(k, val[k], idx === keys.length - 1, depth + 1);
+                    childrenContainer.appendChild(childBranch);
+                });
+                container.appendChild(childrenContainer);
+
+            } else {
+                const bullet = document.createElement('span');
+                bullet.className = "text-slate-400 mr-2 select-none self-center";
+                bullet.innerHTML = "&bull;";
+                itemHeader.appendChild(bullet);
+
+                if (key !== "root") {
+                    itemHeader.appendChild(keySpan);
+                }
+
+                const valSpan = document.createElement('span');
+                if (val === null) {
+                    valSpan.className = "text-slate-400 dark:text-slate-500 italic";
+                    valSpan.textContent = "null";
+                } else if (type === 'string') {
+                    valSpan.className = "text-emerald-600 dark:text-emerald-400 break-all";
+                    valSpan.textContent = `"${val}"`;
+                } else if (type === 'number') {
+                    valSpan.className = "text-amber-600 dark:text-amber-400";
+                    valSpan.textContent = String(val);
+                } else if (type === 'boolean') {
+                    valSpan.className = "text-sky-600 dark:text-sky-400 font-bold";
+                    valSpan.textContent = val ? "true" : "false";
+                } else {
+                    valSpan.className = "text-slate-700 dark:text-slate-300";
+                    valSpan.textContent = String(val);
+                }
+                itemHeader.appendChild(valSpan);
+                container.appendChild(itemHeader);
+            }
+
+            return container;
+        }
+
+        // --- 簡易コンバーター群 ---
+
+        // XMLタグ名として使えない文字（制御文字やスペース、一部の記号など）のみを置換する関数
+        function sanitizeXMLTagName(key) {
+            let tag = String(key);
+            
+            // XMLタグとして使用不可能な記号類（スペースや各種記号）をアンダースコアに置換。
+            // ひらがな、カタカナ、漢字、および一般的なアルファベット・数値はそのまま維持されます。
+            tag = tag.replace(/[\s!"#$%&'()*+,\./:;<=>?@\[\\\]^`{|}~]/g, '_');
+            
+            // タグの先頭が数字、ハイフン、ドットから始まっている場合はアンダースコアを補完
+            if (/^[0-9.-]/.test(tag)) {
+                tag = '_' + tag;
+            }
+            
+            return tag || 'item';
+        }
+
+        function objectToXML(obj) {
+            let xml = '<?xml version="1.0" encoding="UTF-8" ?>\n<root>\n';
+            
+            function build(item, indent) {
+                let spacing = '  '.repeat(indent);
+                if (item === null) {
+                    return '';
+                } else if (typeof item === 'object') {
+                    if (Array.isArray(item)) {
+                        let chunk = '';
+                        item.forEach(subItem => {
+                            chunk += `${spacing}<item>\n`;
+                            chunk += build(subItem, indent + 1);
+                            chunk += `${spacing}</item>\n`;
+                        });
+                        return chunk;
+                    } else {
+                        let chunk = '';
+                        for (let k in item) {
+                            let tag = sanitizeXMLTagName(k);
+
+                            if (typeof item[k] === 'object' && item[k] !== null) {
+                                chunk += `${spacing}<${tag}>\n`;
+                                chunk += build(item[k], indent + 1);
+                                chunk += `${spacing}</${tag}>\n`;
+                            } else {
+                                const valStr = item[k] === null ? '' : escapeHtml(String(item[k]));
+                                chunk += `${spacing}<${tag}>${valStr}</${tag}>\n`;
+                            }
+                        }
+                        return chunk;
+                    }
+                } else {
+                    return `${spacing}${escapeHtml(String(item))}\n`;
+                }
+            }
+
+            xml += build(obj, 1);
+            xml += '</root>';
+            return xml;
+        }
+
+        function objectToTOML(obj) {
+            if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+                return '# TOML は最上位オブジェクトがキー・値のペアである必要があります。\n';
+            }
+
+            let tomlStr = '';
+            
+            function serialize(item, prefix = '') {
+                let simpleKeys = '';
+                let objectKeys = '';
+
+                for (let k in item) {
+                    const val = item[k];
+                    const safeKey = /^[A-Za-z0-9_-]+$/.test(k) ? k : `"${k.replace(/"/g, '\\"')}"`;
+
+                    if (val === null) {
+                        simpleKeys += `# ${safeKey} = null (TOML unsupported null)\n`;
+                    } else if (Array.isArray(val)) {
+                        const isSimpleArray = val.every(x => typeof x !== 'object' || x === null);
+                        if (isSimpleArray) {
+                            const arrItems = val.map(x => {
+                                if (typeof x === 'string') return `"${x.replace(/"/g, '\\"')}"`;
+                                return String(x);
+                            }).join(', ');
+                            simpleKeys += `${safeKey} = [ ${arrItems} ]\n`;
+                        } else {
+                            val.forEach(subObj => {
+                                objectKeys += `\n[[${prefix}${safeKey}]]\n`;
+                                objectKeys += serialize(subObj, `${prefix}${safeKey}.`);
+                            });
+                        }
+                    } else if (typeof val === 'object') {
+                        const currentSection = prefix ? `${prefix}${safeKey}` : safeKey;
+                        objectKeys += `\n[${currentSection}]\n`;
+                        objectKeys += serialize(val, `${currentSection}.`);
+                    } else {
+                        if (typeof val === 'string') {
+                            simpleKeys += `${safeKey} = "${val.replace(/"/g, '\\"')}"\n`;
+                        } else {
+                            simpleKeys += `${safeKey} = ${val}\n`;
+                        }
+                    }
+                }
+                return simpleKeys + objectKeys;
+            }
+
+            tomlStr += serialize(obj);
+            return tomlStr.trim() || '# 空のデータ構造';
+        }
+
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
