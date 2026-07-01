@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>シンプル YAML エディター</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome (アイコン用) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- JS-YAML ライブラリ (YAMLパース & 出力用) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <script>
         tailwind.config = {
@@ -66,7 +63,6 @@
 </head>
 <body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col overflow-hidden">
 
-    <!-- ヘッダーバー -->
     <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between shrink-0">
         <div class="flex items-center space-x-3">
             <div class="bg-gradient-to-tr from-violet-600 to-indigo-600 text-white p-2 rounded-lg shadow-md flex items-center justify-center">
@@ -78,31 +74,24 @@
             </div>
         </div>
 
-        <!-- ツールバー：グローバル操作 -->
         <div class="flex items-center space-x-3">
-            <!-- ヘルプボタン -->
             <button id="helpBtn" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-400 transition" title="機能ヘルプ">
                 <i class="fa-solid fa-circle-question text-lg"></i>
             </button>
-            <!-- ダークモード切り替え -->
             <button id="themeToggleBtn" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="テーマ切り替え">
                 <i id="themeIcon" class="fa-solid fa-moon text-slate-600 dark:text-yellow-400"></i>
             </button>
         </div>
     </header>
 
-    <!-- メインコンテンツ領域 -->
     <main class="flex-1 flex overflow-hidden p-4 space-x-4">
         
-        <!-- 左ペイン: エディタと操作 -->
         <div class="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative">
-            <!-- エディタヘッダー -->
             <div class="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <span class="inline-block w-3 h-3 rounded-full bg-indigo-500"></span>
                     <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">YAML 入力</span>
                 </div>
-                <!-- エディタ機能ボタン群 -->
                 <div class="flex items-center space-x-2">
                     <button onclick="formatYAML()" class="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-200/60 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded transition flex items-center gap-1" title="インデントや整形を自動で行います">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> 整形
@@ -116,18 +105,14 @@
                 </div>
             </div>
 
-            <!-- エディタ本体 -->
             <div class="flex-1 flex overflow-hidden relative">
-                <!-- 行番号 -->
                 <div id="lineNumbers" class="w-12 bg-slate-50 dark:bg-slate-800/30 text-slate-400 dark:text-slate-500 text-right pr-2 pt-4 select-none code-font border-r border-slate-200 dark:border-slate-700 overflow-hidden text-sm leading-6">
                     1
                 </div>
-                <!-- テキストエリア -->
                 <textarea id="yamlTextarea" class="flex-1 p-4 bg-transparent outline-none resize-none code-font text-sm leading-6 overflow-y-auto whitespace-pre dark:text-slate-200" spellcheck="false" placeholder="# ここにYAMLを入力してください...
 # (Hint: 改行時に適切な階層に自動インデントされます。Tabで進む、Shift+Tabで戻る、入力でキーワード補完が使えます)"></textarea>
             </div>
 
-            <!-- バリデーション・ステータスバー -->
             <div id="validationBar" class="px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs transition-colors duration-200 shrink-0">
                 <div class="flex items-center space-x-2">
                     <i id="validationIcon" class="fa-solid fa-circle-check"></i>
@@ -139,16 +124,12 @@
                 </div>
             </div>
 
-            <!-- フローティング入力補完ポップアップ -->
             <div id="autocompletePopup" class="hidden absolute bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto w-48 text-xs code-font py-1">
-                <!-- 動的に補完候補が挿入されます -->
-            </div>
+                </div>
         </div>
 
-        <!-- 右ペイン: 変換 & プレビュー -->
         <div class="w-[45%] flex flex-col space-y-4">
             
-            <!-- 上部: 変換制御カード -->
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 shrink-0">
                 <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
                     <i class="fa-solid fa-right-left text-brand-500"></i> フォーマット変換
@@ -169,9 +150,7 @@
                 </div>
             </div>
 
-            <!-- 下部: リアルタイムビューアー (タブ切替) -->
             <div class="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden">
-                <!-- タブヘッダー -->
                 <div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 shrink-0">
                     <button onclick="switchTab('tree')" id="tab-tree" class="px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-sitemap"></i> ツリー構造
@@ -181,14 +160,11 @@
                     </button>
                 </div>
 
-                <!-- タブコンテンツ領域 -->
                 <div class="flex-1 p-4 overflow-y-auto">
-                    <!-- ツリー表示領域 -->
                     <div id="pane-tree" class="space-y-1">
                         <div id="treeViewContainer" class="text-sm code-font"></div>
                     </div>
 
-                    <!-- 変換結果テキスト領域 -->
                     <div id="pane-converted" class="hidden h-full flex flex-col">
                         <div class="flex justify-end gap-2 mb-2">
                             <button onclick="copyToClipboard('convertedTextarea')" class="px-2 py-1 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded transition flex items-center gap-1">
@@ -203,10 +179,8 @@
         </div>
     </main>
 
-    <!-- 機能ヘルプモーダル -->
     <div id="helpModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in">
-            <!-- モーダルヘッダー -->
             <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <h3 class="text-sm font-bold flex items-center gap-2">
                     <i class="fa-solid fa-circle-question text-indigo-500 text-base"></i>
@@ -216,7 +190,6 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <!-- モーダルボディ（スクロール可能） -->
             <div class="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
                 <div>
                     <h4 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 mb-1 text-xs">
@@ -275,7 +248,6 @@
                     <p class="pl-3 text-slate-500 dark:text-slate-400">エディターでの入力は随時ブラウザの `localStorage` へとオートセーブ。ページを誤ってリロードしたり一度閉じた場合でも、次回起動時に前回の作業を即座に復元して作業が再開できます。</p>
                 </div>
             </div>
-            <!-- モーダルフッター -->
             <div class="px-6 py-3.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                 <button id="okHelpBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-lg shadow transition">
                     閉じる
@@ -284,13 +256,11 @@
         </div>
     </div>
 
-    <!-- 通知トースト -->
     <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl shadow-lg flex items-center space-x-2 text-sm transition-all duration-300 z-50 pointer-events-none">
         <i class="fa-solid fa-circle-check text-emerald-500"></i>
         <span id="toastMessage">コピーしました</span>
     </div>
 
-    <!-- JavaScript ロジック -->
     <script>
         // --- 補完用のキーワード定義 ---
         const YAML_KEYWORDS = [
@@ -333,7 +303,6 @@
 
         // --- 初期化 ---
         window.addEventListener('DOMContentLoaded', () => {
-            // ローカルストレージからダークモード設定を復元、なければOS設定優先
             if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
                 themeIcon.className = "fa-solid fa-sun text-yellow-400";
@@ -342,7 +311,6 @@
                 themeIcon.className = "fa-solid fa-moon text-slate-600";
             }
 
-            // localStorage から前回保存されたデータを読み込み
             const savedYAML = localStorage.getItem('saved_yaml_data');
             if (savedYAML !== null) {
                 yamlTextarea.value = savedYAML;
@@ -353,805 +321,3 @@
             updateLineNumbers();
             validateAndProcess();
         });
-
-        // --- イベントリスナー ---
-
-        // ヘルプモーダルの開閉
-        helpBtn.addEventListener('click', () => {
-            helpModal.classList.remove('hidden');
-        });
-        const hideHelpModal = () => {
-            helpModal.classList.add('hidden');
-        };
-        closeHelpBtn.addEventListener('click', hideHelpModal);
-        okHelpBtn.addEventListener('click', hideHelpModal);
-        helpModal.addEventListener('click', (e) => {
-            if (e.target === helpModal) hideHelpModal();
-        });
-
-        // 日本語入力中（IME変換中）のフラグ制御
-        yamlTextarea.addEventListener('compositionstart', () => {
-            isComposing = true;
-        });
-
-        yamlTextarea.addEventListener('compositionend', () => {
-            isComposing = false;
-            // 変換確定後にバリデーションや自動セーブを実行
-            updateLineNumbers();
-            validateAndProcess();
-            handleAutocompleteTrigger();
-            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-        });
-
-        // 入力時のリアルタイム監視
-        yamlTextarea.addEventListener('input', (e) => {
-            if (isComposing) return; // IME入力中はinputイベントによる自動処理を一時保留する
-            updateLineNumbers();
-            validateAndProcess();
-            handleAutocompleteTrigger();
-            // 入力があるたびに内容を自動保存
-            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-        });
-
-        // 行数カウント・スクロール同期用
-        yamlTextarea.addEventListener('scroll', () => {
-            lineNumbers.scrollTop = yamlTextarea.scrollTop;
-        });
-
-        // テーマ切り替え
-        themeToggleBtn.addEventListener('click', () => {
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.theme = 'light';
-                themeIcon.className = "fa-solid fa-moon text-slate-600";
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.theme = 'dark';
-                themeIcon.className = "fa-solid fa-sun text-yellow-400";
-            }
-        });
-
-        // キーダウン制御 (Tab、Enter、Backspace、オートクローズペアなど)
-        yamlTextarea.addEventListener('keydown', (e) => {
-            // 日本語入力中（IME変換・候補選択中、またはIMEオン状態でのキーダウンkeyCode: 229）は、エディタ独自のキー操作を一切行わずブラウザ標準に任せる
-            if (isComposing || e.isComposing || e.keyCode === 229) {
-                return;
-            }
-
-            const start = yamlTextarea.selectionStart;
-            const end = yamlTextarea.selectionEnd;
-            const value = yamlTextarea.value;
-
-            // --- 補完ポップアップ表示中の特別制御 ---
-            if (!autocompletePopup.classList.contains('hidden')) {
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    activeSuggestionIndex = (activeSuggestionIndex + 1) % filteredSuggestions.length;
-                    updateSuggestionSelection();
-                    return;
-                }
-                if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    activeSuggestionIndex = (activeSuggestionIndex - 1 + filteredSuggestions.length) % filteredSuggestions.length;
-                    updateSuggestionSelection();
-                    return;
-                }
-                if (e.key === 'Enter' || e.key === 'Tab') {
-                    e.preventDefault();
-                    insertSelectedSuggestion();
-                    return;
-                }
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    hideAutocomplete();
-                    return;
-                }
-            }
-
-            // --- Backspace キー押下時のスマートインデント消去 ---
-            if (e.key === 'Backspace' && start === end) {
-                const beforeCaret = value.substring(0, start);
-                const lineStart = beforeCaret.lastIndexOf('\n') + 1;
-                const lineBeforeCaret = beforeCaret.substring(lineStart);
-
-                // 行頭からカーソル位置までが半角スペースのみ、かつ2つ以上スペースがある場合
-                if (/^ {2,}$/.test(lineBeforeCaret) && lineBeforeCaret.length % 2 === 0) {
-                    e.preventDefault();
-                    
-                    // 1階層分（スペース2つ）を選択してブラウザ標準のdeleteコマンドで消去 (Undo履歴対応)
-                    yamlTextarea.setSelectionRange(start - 2, start);
-                    try {
-                        document.execCommand('delete', false);
-                    } catch (err) {
-                        // 万が一execCommandが動作しないブラウザ環境での安全なフォールバック
-                        yamlTextarea.value = value.substring(0, start - 2) + value.substring(end);
-                        yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
-                    }
-
-                    updateLineNumbers();
-                    validateAndProcess();
-                    localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-                    return;
-                }
-            }
-
-            // --- Enter キー押下時のスマート自動インデント ---
-            if (e.key === 'Enter' && start === end) {
-                e.preventDefault();
-
-                const beforeCaret = value.substring(0, start);
-                const linesBefore = beforeCaret.split('\n');
-                const lastLine = linesBefore[linesBefore.length - 1];
-
-                const indentMatch = lastLine.match(/^(\s*)/);
-                let indent = indentMatch ? indentMatch[1] : '';
-
-                const cleanLine = lastLine.trim();
-                if (cleanLine.endsWith(':') || cleanLine.endsWith('-')) {
-                    indent += '  ';
-                }
-
-                const insertion = '\n' + indent;
-                
-                // insertText コマンドで改行＋インデントを挿入することで、Undo(Ctrl+Z)を有効化
-                try {
-                    document.execCommand('insertText', false, insertion);
-                } catch (err) {
-                    // フォールバック
-                    yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
-                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + insertion.length;
-                }
-
-                updateLineNumbers();
-                validateAndProcess();
-                localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-                return;
-            }
-
-            // --- Tab キーによるインデント機能 ---
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                
-                if (start !== end) {
-                    const before = value.substring(0, start);
-                    const lineStart = before.lastIndexOf('\n') + 1;
-                    const selectedText = value.substring(lineStart, end);
-                    const lines = selectedText.split('\n');
-                    
-                    let newLines;
-                    if (e.shiftKey) {
-                        newLines = lines.map(line => line.startsWith('  ') ? line.substring(2) : (line.startsWith(' ') ? line.substring(1) : line));
-                    } else {
-                        newLines = lines.map(line => '  ' + line);
-                    }
-                    
-                    const replacement = newLines.join('\n');
-                    yamlTextarea.setSelectionRange(lineStart, end);
-                    try {
-                        document.execCommand('insertText', false, replacement);
-                        yamlTextarea.setSelectionRange(lineStart, lineStart + replacement.length);
-                    } catch (err) {
-                        yamlTextarea.value = value.substring(0, lineStart) + replacement + value.substring(end);
-                        yamlTextarea.selectionStart = lineStart;
-                        yamlTextarea.selectionEnd = lineStart + replacement.length;
-                    }
-                } else {
-                    if (e.shiftKey) {
-                        const before = value.substring(0, start);
-                        const lineStart = before.lastIndexOf('\n') + 1;
-                        const line = value.substring(lineStart, start);
-                        if (line.startsWith('  ')) {
-                            yamlTextarea.setSelectionRange(start - 2, start);
-                            try {
-                                document.execCommand('delete', false);
-                            } catch (err) {
-                                yamlTextarea.value = value.substring(0, lineStart) + line.substring(2) + value.substring(start);
-                                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 2;
-                            }
-                        } else if (line.startsWith(' ')) {
-                            yamlTextarea.setSelectionRange(start - 1, start);
-                            try {
-                                document.execCommand('delete', false);
-                            } catch (err) {
-                                yamlTextarea.value = value.substring(0, lineStart) + line.substring(1) + value.substring(start);
-                                yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start - 1;
-                            }
-                        }
-                    } else {
-                        // 通常の Tab で2スペース挿入
-                        try {
-                            document.execCommand('insertText', false, "  ");
-                        } catch (err) {
-                            yamlTextarea.value = value.substring(0, start) + "  " + value.substring(end);
-                            yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 2;
-                        }
-                    }
-                }
-                
-                updateLineNumbers();
-                validateAndProcess();
-                localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-                return;
-            }
-
-            // --- 括弧・引用符のオートクローズペア ---
-            const pairs = { '{': '}', '[': ']', '"': '"', "'": "'" };
-            if (pairs[e.key] !== undefined) {
-                e.preventDefault();
-                const closingChar = pairs[e.key];
-                const insertion = e.key + closingChar;
-
-                try {
-                    // ペアを一気に挿入し、キャレットだけ1文字手前に引き戻す (Undo対応)
-                    document.execCommand('insertText', false, insertion);
-                    yamlTextarea.setSelectionRange(start + 1, start + 1);
-                } catch (err) {
-                    yamlTextarea.value = value.substring(0, start) + insertion + value.substring(end);
-                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = start + 1;
-                }
-                
-                updateLineNumbers();
-                validateAndProcess();
-                localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-                return;
-            }
-        });
-
-        // エディタ外をクリックした際に補完ポップアップを閉じる
-        document.addEventListener('click', (e) => {
-            if (e.target !== yamlTextarea && !autocompletePopup.contains(e.target)) {
-                hideAutocomplete();
-            }
-        });
-
-        // --- 入力補完（オートコンプリート）システム ---
-
-        function getCaretCoordinates(textarea, position) {
-            const div = document.createElement('div');
-            const style = window.getComputedStyle(textarea);
-            for (const prop of style) {
-                div.style[prop] = style[prop];
-            }
-            div.style.position = 'absolute';
-            div.style.visibility = 'hidden';
-            div.style.whiteSpace = 'pre-wrap';
-            div.style.wordBreak = 'break-all';
-            
-            const text = textarea.value.substring(0, position);
-            div.textContent = text;
-            
-            const span = document.createElement('span');
-            span.textContent = textarea.value.substring(position, position + 1) || '.';
-            div.appendChild(span);
-            
-            document.body.appendChild(div);
-            const { offsetLeft, offsetTop } = span;
-            document.body.removeChild(div);
-            
-            return {
-                left: offsetLeft + textarea.offsetLeft - textarea.scrollLeft,
-                top: offsetTop + textarea.offsetTop - textarea.scrollTop + 18
-            };
-        }
-
-        function handleAutocompleteTrigger() {
-            const text = yamlTextarea.value;
-            const caretPos = yamlTextarea.selectionStart;
-            
-            const beforeCaret = text.substring(0, caretPos);
-            const match = beforeCaret.match(/[\w-]+$/);
-            
-            if (!match) {
-                hideAutocomplete();
-                return;
-            }
-
-            const currentWord = match[0];
-            if (currentWord.length < 2) {
-                hideAutocomplete();
-                return;
-            }
-
-            filteredSuggestions = YAML_KEYWORDS.filter(k => 
-                k.toLowerCase().startsWith(currentWord.toLowerCase()) && 
-                k.toLowerCase() !== currentWord.toLowerCase()
-            );
-
-            if (filteredSuggestions.length === 0) {
-                hideAutocomplete();
-                return;
-            }
-
-            renderSuggestions(currentWord);
-            const coords = getCaretCoordinates(yamlTextarea, caretPos - currentWord.length);
-            
-            const maxLeft = yamlTextarea.clientWidth - 200;
-            const maxTop = yamlTextarea.clientHeight - 150;
-            const left = Math.min(coords.left, maxLeft);
-            const top = Math.min(coords.top, maxTop);
-
-            autocompletePopup.style.left = `${left}px`;
-            autocompletePopup.style.top = `${top}px`;
-            autocompletePopup.classList.remove('hidden');
-        }
-
-        function renderSuggestions(currentWord) {
-            autocompletePopup.innerHTML = '';
-            activeSuggestionIndex = 0;
-
-            filteredSuggestions.forEach((suggestion, index) => {
-                const item = document.createElement('div');
-                item.className = "px-3 py-1.5 cursor-pointer flex items-center justify-between text-slate-700 dark:text-slate-300 transition-colors";
-                item.dataset.index = index;
-
-                const highlighted = `<strong>${suggestion.substring(0, currentWord.length)}</strong>${suggestion.substring(currentWord.length)}`;
-                
-                item.innerHTML = `
-                    <span>${highlighted}</span>
-                    <span class="text-[9px] text-slate-400 dark:text-slate-500 font-mono">YAML</span>
-                `;
-
-                item.addEventListener('click', () => {
-                    activeSuggestionIndex = index;
-                    insertSelectedSuggestion();
-                });
-
-                autocompletePopup.appendChild(item);
-            });
-
-            updateSuggestionSelection();
-        }
-
-        function updateSuggestionSelection() {
-            const items = autocompletePopup.querySelectorAll('div');
-            items.forEach((item, index) => {
-                if (index === activeSuggestionIndex) {
-                    item.className = "px-3 py-1.5 cursor-pointer flex items-center justify-between text-white bg-indigo-600 dark:bg-indigo-600 font-medium";
-                    item.scrollIntoView({ block: 'nearest' });
-                } else {
-                    item.className = "px-3 py-1.5 cursor-pointer flex items-center justify-between text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60";
-                }
-            });
-        }
-
-        function insertSelectedSuggestion() {
-            const selectedText = filteredSuggestions[activeSuggestionIndex];
-            if (!selectedText) return;
-
-            const text = yamlTextarea.value;
-            const caretPos = yamlTextarea.selectionStart;
-            const beforeCaret = text.substring(0, caretPos);
-            const match = beforeCaret.match(/[\w-]+$/);
-
-            if (match) {
-                const startPos = caretPos - match[0].length;
-                yamlTextarea.setSelectionRange(startPos, caretPos);
-                try {
-                    // execCommand を使って入力補完を反映させることで Undo を阻害しない
-                    document.execCommand('insertText', false, selectedText);
-                } catch (err) {
-                    yamlTextarea.value = text.substring(0, startPos) + selectedText + text.substring(caretPos);
-                    yamlTextarea.selectionStart = yamlTextarea.selectionEnd = startPos + selectedText.length;
-                }
-            }
-
-            hideAutocomplete();
-            updateLineNumbers();
-            validateAndProcess();
-            yamlTextarea.focus();
-            localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-        }
-
-        function hideAutocomplete() {
-            autocompletePopup.classList.add('hidden');
-            filteredSuggestions = [];
-        }
-
-        function switchTab(tabName) {
-            const tabTree = document.getElementById('tab-tree');
-            const tabConverted = document.getElementById('tab-converted');
-            const paneTree = document.getElementById('pane-tree');
-            const paneConverted = document.getElementById('pane-converted');
-
-            if (tabName === 'tree') {
-                tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
-                tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
-                paneTree.classList.remove('hidden');
-                paneConverted.classList.add('hidden');
-            } else {
-                tabConverted.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition";
-                tabTree.className = "px-4 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition";
-                paneTree.add('hidden');
-                paneConverted.classList.remove('hidden');
-                updateConvertedOutput();
-            }
-        }
-
-        // --- 主要関数 ---
-
-        function updateLineNumbers() {
-            const text = yamlTextarea.value;
-            const lines = text.split('\n');
-            const lineCount = lines.length;
-            
-            let numbersHtml = '';
-            for (let i = 1; i <= lineCount; i++) {
-                numbersHtml += `<div>${i}</div>`;
-            }
-            lineNumbers.innerHTML = numbersHtml;
-
-            charCountSpan.textContent = `文字数: ${text.length}`;
-            lineCountSpan.textContent = `行数: ${lineCount}`;
-        }
-
-        function validateAndProcess() {
-            const yamlStr = yamlTextarea.value;
-
-            if (!yamlStr.trim()) {
-                setValidationState(true, "YAMLを入力してください...");
-                treeViewContainer.innerHTML = `<span class="text-slate-400 italic">データがありません</span>`;
-                parsedJSONObj = null;
-                updateConvertedOutput();
-                return;
-            }
-
-            try {
-                const doc = jsyaml.load(yamlStr);
-                parsedJSONObj = doc;
-                
-                setValidationState(true, "構文は正常です (Valid YAML)");
-                renderTreeView(doc);
-                updateConvertedOutput();
-
-            } catch (error) {
-                setValidationState(false, error.message);
-                renderErrorTreeView(error.message);
-            }
-        }
-
-        // バリデーション状況のUIフィードバック
-        function setValidationState(isValid, message) {
-            if (isValid) {
-                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-between text-xs shrink-0";
-                validationIcon.className = "fa-solid fa-circle-check text-emerald-500 text-sm";
-                validationMessage.textContent = message;
-            } else {
-                validationBar.className = "px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 flex items-center justify-between text-xs shrink-0";
-                validationIcon.className = "fa-solid fa-triangle-exclamation text-rose-500 text-sm";
-                validationMessage.textContent = message;
-            }
-        }
-
-        // 全選択をしてから insertText コマンドで丸ごと置き換えるヘルパー
-        // これにより、ブラウザの標準Undoスタックに編集履歴を正常にプールさせ、Ctrl+Zが正常動作する
-        function updateTextareaValueWithUndo(newValue) {
-            yamlTextarea.focus();
-            // テキストエリア全体を選択状態に設定
-            yamlTextarea.setSelectionRange(0, yamlTextarea.value.length);
-            try {
-                const success = document.execCommand('insertText', false, newValue);
-                if (!success) {
-                    yamlTextarea.value = newValue;
-                }
-            } catch (err) {
-                yamlTextarea.value = newValue;
-            }
-            // 選択を解除しカーソルを先頭へ
-            yamlTextarea.setSelectionRange(0, 0);
-        }
-
-        function formatYAML() {
-            const yamlStr = yamlTextarea.value;
-            if (!yamlStr.trim()) return;
-
-            try {
-                const doc = jsyaml.load(yamlStr);
-                if (doc && typeof doc === 'object') {
-                    const formatted = jsyaml.dump(doc, {
-                        indent: 2,
-                        lineWidth: -1,
-                        noRefs: true
-                    });
-                    
-                    // 単純代入ではなくUndoが利く形で一括置き換え
-                    updateTextareaValueWithUndo(formatted);
-                    
-                    updateLineNumbers();
-                    validateAndProcess();
-                    localStorage.setItem('saved_yaml_data', yamlTextarea.value);
-                    showToast("YAML を整形しました (Undo可能です)");
-                }
-            } catch (error) {
-                showToast("エラー: 不正なYAMLは整形できません", true);
-            }
-        }
-
-        // エディタのクリア
-        function clearEditor() {
-            updateTextareaValueWithUndo('');
-            updateLineNumbers();
-            validateAndProcess();
-            localStorage.removeItem('saved_yaml_data');
-            showToast("エディタをクリアしました (Undo可能です)");
-        }
-
-        function copyToClipboard(elementId) {
-            const element = document.getElementById(elementId);
-            if (!element || !element.value) return;
-
-            element.select();
-            element.setSelectionRange(0, 99999);
-
-            try {
-                document.execCommand('copy');
-                showToast("クリップボードにコピーしました！");
-            } catch (err) {
-                showToast("コピーに失敗しました", true);
-            }
-            
-            window.getSelection().removeAllRanges();
-        }
-
-        function convertTo(format) {
-            currentTargetFormat = format;
-            convertedFormatLabel.textContent = format.toUpperCase();
-            switchTab('converted');
-            updateConvertedOutput();
-        }
-
-        function updateConvertedOutput() {
-            if (!parsedJSONObj) {
-                convertedTextarea.value = "解析可能な有効なデータ構造がありません。";
-                return;
-            }
-
-            try {
-                if (currentTargetFormat === 'json') {
-                    convertedTextarea.value = JSON.stringify(parsedJSONObj, null, 2);
-                } else if (currentTargetFormat === 'xml') {
-                    convertedTextarea.value = objectToXML(parsedJSONObj);
-                } else if (currentTargetFormat === 'toml') {
-                    convertedTextarea.value = objectToTOML(parsedJSONObj);
-                }
-            } catch (err) {
-                convertedTextarea.value = `変換中にエラーが発生しました:\n${err.message}`;
-            }
-        }
-
-        function showToast(message, isError = false) {
-            toastMessage.textContent = message;
-            const icon = toast.querySelector('i');
-            if (isError) {
-                toast.classList.add('bg-rose-600', 'text-white');
-                toast.classList.remove('bg-slate-900', 'dark:bg-white', 'text-slate-900');
-                icon.className = "fa-solid fa-circle-xmark text-white mr-1";
-            } else {
-                toast.className = "fixed bottom-6 right-6 transform bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl shadow-lg flex items-center space-x-2 text-sm transition-all duration-300 z-50 pointer-events-none";
-                icon.className = "fa-solid fa-circle-check text-emerald-500 mr-1";
-            }
-
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 2500);
-        }
-
-        function renderTreeView(data) {
-            treeViewContainer.innerHTML = '';
-            if (data === null || data === undefined) {
-                treeViewContainer.innerHTML = `<span class="text-slate-400 italic">空のデータ</span>`;
-                return;
-            }
-            
-            const root = createTreeBranch("root", data, true);
-            treeViewContainer.appendChild(root);
-        }
-
-        function renderErrorTreeView(errorMessage) {
-            treeViewContainer.innerHTML = `
-                <div class="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs">
-                    <div class="font-bold mb-1 flex items-center gap-1.5">
-                        <i class="fa-solid fa-circle-exclamation"></i> 解析エラー
-                    </div>
-                    <p class="whitespace-pre-wrap leading-relaxed">${escapeHtml(errorMessage)}</p>
-                </div>
-            `;
-        }
-
-        function createTreeBranch(key, val, isLast = true, depth = 0) {
-            const container = document.createElement('div');
-            container.className = "pl-4 border-l border-slate-200/50 dark:border-slate-700/50 my-0.5";
-
-            const itemHeader = document.createElement('div');
-            itemHeader.className = "flex items-start py-0.5 hover:bg-slate-100/50 dark:hover:bg-slate-700/20 rounded px-1 group text-xs";
-
-            const type = typeof val;
-            const isObject = val !== null && type === 'object';
-            const isArray = Array.isArray(val);
-
-            const keySpan = document.createElement('span');
-            if (key !== "root") {
-                keySpan.className = "font-semibold text-indigo-600 dark:text-indigo-400 mr-1.5 select-none";
-                keySpan.textContent = `${key}:`;
-            }
-
-            if (isObject) {
-                const toggleIcon = document.createElement('i');
-                toggleIcon.className = "fa-solid fa-chevron-down text-slate-400 mr-1.5 cursor-pointer hover:text-slate-600 self-center transition-transform";
-                itemHeader.appendChild(toggleIcon);
-
-                itemHeader.appendChild(keySpan);
-
-                const metaSpan = document.createElement('span');
-                metaSpan.className = "text-[10px] text-slate-400 dark:text-slate-500 font-mono";
-                metaSpan.textContent = isArray ? `[Array(${val.length})]` : `{Object}`;
-                itemHeader.appendChild(metaSpan);
-
-                const childrenContainer = document.createElement('div');
-                childrenContainer.className = "transition-all duration-200";
-
-                itemHeader.addEventListener('click', (e) => {
-                    if (e.target.tagName === 'I' || e.currentTarget === e.target || e.target === keySpan || e.target === metaSpan) {
-                        const isCollapsed = childrenContainer.classList.contains('hidden');
-                        if (isCollapsed) {
-                            childrenContainer.classList.remove('hidden');
-                            toggleIcon.classList.remove('-rotate-90');
-                        } else {
-                            childrenContainer.classList.add('hidden');
-                            toggleIcon.classList.add('-rotate-90');
-                        }
-                    }
-                });
-
-                container.appendChild(itemHeader);
-
-                const keys = Object.keys(val);
-                keys.forEach((k, idx) => {
-                    const childBranch = createTreeBranch(k, val[k], idx === keys.length - 1, depth + 1);
-                    childrenContainer.appendChild(childBranch);
-                });
-                container.appendChild(childrenContainer);
-
-            } else {
-                const bullet = document.createElement('span');
-                bullet.className = "text-slate-400 mr-2 select-none self-center";
-                bullet.innerHTML = "&bull;";
-                itemHeader.appendChild(bullet);
-
-                if (key !== "root") {
-                    itemHeader.appendChild(keySpan);
-                }
-
-                const valSpan = document.createElement('span');
-                if (val === null) {
-                    valSpan.className = "text-slate-400 dark:text-slate-500 italic";
-                    valSpan.textContent = "null";
-                } else if (type === 'string') {
-                    valSpan.className = "text-emerald-600 dark:text-emerald-400 break-all";
-                    valSpan.textContent = `"${val}"`;
-                } else if (type === 'number') {
-                    valSpan.className = "text-amber-600 dark:text-amber-400";
-                    valSpan.textContent = String(val);
-                } else if (type === 'boolean') {
-                    valSpan.className = "text-sky-600 dark:text-sky-400 font-bold";
-                    valSpan.textContent = val ? "true" : "false";
-                } else {
-                    valSpan.className = "text-slate-700 dark:text-slate-300";
-                    valSpan.textContent = String(val);
-                }
-                itemHeader.appendChild(valSpan);
-                container.appendChild(itemHeader);
-            }
-
-            return container;
-        }
-
-        // --- 簡易コンバーター群 ---
-
-        function objectToXML(obj) {
-            let xml = '<?xml version="1.0" encoding="UTF-8" ?>\n<root>\n';
-            
-            function build(item, indent) {
-                let spacing = '  '.repeat(indent);
-                if (item === null) {
-                    return '';
-                } else if (typeof item === 'object') {
-                    if (Array.isArray(item)) {
-                        let chunk = '';
-                        item.forEach(subItem => {
-                            chunk += `${spacing}<item>\n`;
-                            chunk += build(subItem, indent + 1);
-                            chunk += `${spacing}</item>\n`;
-                        });
-                        return chunk;
-                    } else {
-                        let chunk = '';
-                        for (let k in item) {
-                            let tag = k.replace(/[^a-zA-Z0-9_-]/g, '_');
-                            if (/^\d/.test(tag)) tag = '_' + tag;
-
-                            if (typeof item[k] === 'object' && item[k] !== null) {
-                                chunk += `${spacing}<${tag}>\n`;
-                                chunk += build(item[k], indent + 1);
-                                chunk += `${spacing}</${tag}>\n`;
-                            } else {
-                                const valStr = item[k] === null ? '' : escapeHtml(String(item[k]));
-                                chunk += `${spacing}<${tag}>${valStr}</${tag}>\n`;
-                            }
-                        }
-                        return chunk;
-                    }
-                } else {
-                    return `${spacing}${escapeHtml(String(item))}\n`;
-                }
-            }
-
-            xml += build(obj, 1);
-            xml += '</root>';
-            return xml;
-        }
-
-        function objectToTOML(obj) {
-            if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
-                return '# TOML は最上位オブジェクトがキー・値のペアである必要があります。\n';
-            }
-
-            let tomlStr = '';
-            
-            function serialize(item, prefix = '') {
-                let simpleKeys = '';
-                let objectKeys = '';
-
-                for (let k in item) {
-                    const val = item[k];
-                    const safeKey = /^[A-Za-z0-9_-]+$/.test(k) ? k : `"${k.replace(/"/g, '\\"')}"`;
-
-                    if (val === null) {
-                        simpleKeys += `# ${safeKey} = null (TOML unsupported null)\n`;
-                    } else if (Array.isArray(val)) {
-                        const isSimpleArray = val.every(x => typeof x !== 'object' || x === null);
-                        if (isSimpleArray) {
-                            const arrItems = val.map(x => {
-                                if (typeof x === 'string') return `"${x.replace(/"/g, '\\"')}"`;
-                                return String(x);
-                            }).join(', ');
-                            simpleKeys += `${safeKey} = [ ${arrItems} ]\n`;
-                        } else {
-                            val.forEach(subObj => {
-                                objectKeys += `\n[[${prefix}${safeKey}]]\n`;
-                                objectKeys += serialize(subObj, `${prefix}${safeKey}.`);
-                            });
-                        }
-                    } else if (typeof val === 'object') {
-                        const currentSection = prefix ? `${prefix}${safeKey}` : safeKey;
-                        objectKeys += `\n[${currentSection}]\n`;
-                        objectKeys += serialize(val, `${currentSection}.`);
-                    } else {
-                        if (typeof val === 'string') {
-                            simpleKeys += `${safeKey} = "${val.replace(/"/g, '\\"')}"\n`;
-                        } else {
-                            simpleKeys += `${safeKey} = ${val}\n`;
-                        }
-                    }
-                }
-                return simpleKeys + objectKeys;
-            }
-
-            tomlStr += serialize(obj);
-            return tomlStr.trim() || '# 空のデータ構造';
-        }
-
-        function escapeHtml(str) {
-            return str
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-    </script>
-</body>
-</html>
